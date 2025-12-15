@@ -1,0 +1,832 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SciCo Leaderboard</title>
+    
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+    
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600;700&family=Roboto:wght@400;500;700&display=swap');
+        
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        html { font-size: 18px; }
+        
+        @media (min-width: 1920px) { html { font-size: 22px; } }
+        @media (min-width: 2560px) { html { font-size: 28px; } }
+        @media (min-width: 3840px) { html { font-size: 36px; } }
+        @media (max-width: 1200px) { html { font-size: 16px; } }
+        @media (max-width: 768px) { html { font-size: 14px; } }
+        
+        body {
+            font-family: 'Roboto', sans-serif;
+            background: linear-gradient(135deg, #1a0808 0%, #2d0a0a 50%, #1a0808 100%);
+            min-height: 100vh;
+            color: #fff;
+            overflow-x: hidden;
+            position: relative;
+        }
+        
+        #particles {
+            position: fixed;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            pointer-events: none;
+            z-index: 0;
+        }
+        
+        body::before {
+            content: '';
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: 
+                linear-gradient(90deg, rgba(255, 8, 68, 0.03) 1px, transparent 1px),
+                linear-gradient(rgba(255, 8, 68, 0.03) 1px, transparent 1px),
+                repeating-linear-gradient(45deg, transparent, transparent 100px, rgba(139, 0, 0, 0.04) 100px, rgba(139, 0, 0, 0.04) 200px),
+                repeating-linear-gradient(-45deg, transparent, transparent 150px, rgba(255, 8, 68, 0.02) 150px, rgba(255, 8, 68, 0.02) 300px);
+            background-size: 50px 50px, 50px 50px, 200px 200px, 300px 300px;
+            pointer-events: none;
+            z-index: 1;
+        }
+        
+        body::after {
+            content: '';
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: 
+                radial-gradient(ellipse at 0% 0%, rgba(139, 0, 50, 0.15) 0%, transparent 50%),
+                radial-gradient(ellipse at 100% 100%, rgba(139, 0, 50, 0.1) 0%, transparent 50%),
+                radial-gradient(ellipse at 100% 0%, rgba(255, 8, 68, 0.05) 0%, transparent 40%),
+                radial-gradient(ellipse at 0% 100%, rgba(255, 8, 68, 0.05) 0%, transparent 40%);
+            pointer-events: none;
+            z-index: 1;
+        }
+        
+        .container {
+            max-width: 95vw;
+            margin: 0 auto;
+            padding: 1.5rem;
+            display: grid;
+            grid-template-columns: minmax(300px, 400px) 1fr;
+            gap: 2rem;
+            position: relative;
+            z-index: 3;
+        }
+        
+        .left-panel {
+            background: linear-gradient(180deg, #2a0a0a 0%, #1a0505 100%);
+            border: 3px solid #8b0000;
+            border-radius: 1rem;
+            padding: 1.5rem;
+            position: relative;
+            overflow: hidden;
+            height: fit-content;
+        }
+        
+        .left-panel::before {
+            content: '';
+            position: absolute;
+            top: -50%; left: -50%;
+            width: 200%; height: 200%;
+            background: radial-gradient(ellipse at center, rgba(139, 0, 50, 0.3) 0%, transparent 50%);
+            pointer-events: none;
+        }
+        
+        .avatar-section {
+            position: relative;
+            z-index: 1;
+            text-align: center;
+            margin-bottom: 1.25rem;
+        }
+        
+        .avatar-container {
+            width: 80%;
+            max-width: 280px;
+            aspect-ratio: 1/1.15;
+            margin: 0 auto;
+            position: relative;
+            cursor: pointer;
+        }
+        
+        .remove-avatar-btn {
+            position: absolute;
+            top: 0.5rem; right: 0.5rem;
+            background: rgba(139, 0, 0, 0.9);
+            border: none;
+            color: #fff;
+            width: 2rem; height: 2rem;
+            border-radius: 50%;
+            cursor: pointer;
+            font-size: 1rem;
+            z-index: 10;
+            display: none;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .remove-avatar-btn:hover { background: #cc0000; }
+        .avatar-container:hover .remove-avatar-btn { display: flex; }
+        
+        .avatar-silhouette {
+            width: 100%; height: 100%;
+            background: #1a0505;
+            border-radius: 0.625rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .avatar-silhouette img {
+            width: 100%; height: 100%;
+            object-fit: cover;
+            border-radius: 0.625rem;
+        }
+        
+        .avatar-silhouette svg {
+            width: 70%; height: 80%;
+            fill: #0a0505;
+            filter: drop-shadow(0 0 30px rgba(139, 0, 50, 0.5));
+        }
+        
+        .avatar-silhouette input { display: none; }
+        
+        .scico-badge {
+            position: absolute;
+            bottom: 1.25rem;
+            left: 50%;
+            transform: translateX(-50%);
+            background: linear-gradient(180deg, #2a2a2a 0%, #1a1a1a 100%);
+            border: 2px solid #444;
+            border-radius: 0.5rem;
+            padding: 0.5rem 1.5rem;
+            z-index: 2;
+        }
+        
+        .scico-badge span {
+            font-family: 'Oswald', sans-serif;
+            font-size: 1.5rem;
+            font-weight: 700;
+            background: linear-gradient(180deg, #ff0844 0%, #8b0000 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        
+        .formulas-section {
+            position: relative;
+            z-index: 1;
+            margin-top: 1.5rem;
+        }
+        
+        .formula-box {
+            background: rgba(0, 0, 0, 0.4);
+            border-left: 3px solid #8b0000;
+            padding: 1rem;
+            margin-bottom: 1.25rem;
+            border-radius: 0 0.5rem 0.5rem 0;
+        }
+        
+        .formula-title {
+            font-style: italic;
+            color: #fff;
+            font-size: 1.1rem;
+            margin-bottom: 0.5rem;
+            text-decoration: underline;
+            background: transparent;
+            border: none;
+            width: 100%;
+            font-family: inherit;
+        }
+        
+        .formula-title:focus { outline: none; color: #ff6688; }
+        
+        .formula-content {
+            width: 100%;
+            background: transparent;
+            border: none;
+            color: #ccc;
+            font-size: 1rem;
+            line-height: 1.5;
+            resize: vertical;
+            min-height: 3.75rem;
+            font-family: inherit;
+        }
+        
+        .formula-content:focus { outline: none; color: #fff; }
+        
+        .leaderboard { position: relative; }
+        
+        .leaderboard-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1.5rem;
+            flex-wrap: wrap;
+            gap: 1rem;
+        }
+        
+        .leaderboard-header h1 {
+            font-family: 'Oswald', sans-serif;
+            font-size: 2.5rem;
+            font-weight: 700;
+            color: #ff0844;
+            letter-spacing: 0.15rem;
+        }
+        
+        .sync-status {
+            font-size: 0.8rem;
+            padding: 0.3rem 0.8rem;
+            border-radius: 1rem;
+            margin-left: 1rem;
+        }
+        
+        .sync-status.connected { background: #0a3d0a; color: #0f0; }
+        .sync-status.disconnected { background: #3d0a0a; color: #f00; }
+        
+        .controls-bar {
+            display: flex;
+            gap: 0.625rem;
+            flex-wrap: wrap;
+        }
+        
+        .btn {
+            background: linear-gradient(180deg, #ff0844 0%, #cc0636 100%);
+            border: none;
+            color: #fff;
+            padding: 0.625rem 1.25rem;
+            border-radius: 0.3rem;
+            cursor: pointer;
+            font-family: 'Oswald', sans-serif;
+            font-size: 1rem;
+            font-weight: 600;
+            letter-spacing: 0.0625rem;
+            transition: all 0.3s;
+        }
+        
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 20px rgba(255, 8, 68, 0.4);
+        }
+        
+        .btn.secondary { background: linear-gradient(180deg, #444 0%, #222 100%); }
+        
+        .leaderboard-list {
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+        }
+        
+        .leaderboard-item {
+            display: grid;
+            grid-template-columns: 3.5rem minmax(5rem, 6rem) 1fr 3rem minmax(4.5rem, 6rem) minmax(8rem, 12rem) auto;
+            gap: 1rem;
+            align-items: center;
+            background: linear-gradient(90deg, #1a1a1a 0%, #252525 50%, #1a1a1a 100%);
+            border-radius: 0.5rem;
+            padding: 0.75rem 1rem;
+            position: relative;
+            transition: all 0.3s;
+        }
+        
+        .leaderboard-item:hover {
+            transform: scale(1.01);
+            box-shadow: 0 5px 25px rgba(0, 0, 0, 0.5);
+        }
+        
+        .rank {
+            background: linear-gradient(180deg, #ff0844 0%, #cc0636 100%);
+            color: #fff;
+            font-family: 'Oswald', sans-serif;
+            font-size: 2rem;
+            font-weight: 700;
+            width: 3.2rem; height: 3.2rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 0.3rem;
+        }
+        
+        .profile-container {
+            position: relative;
+            cursor: pointer;
+            width: 4.5rem; height: 5rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .medal-wrapper {
+            position: relative;
+            width: 4rem; height: 4rem;
+        }
+        
+        .crown {
+            position: absolute;
+            top: -0.9rem;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 1.5rem; height: 1rem;
+            z-index: 5;
+        }
+        
+        .crown svg { width: 100%; height: 100%; }
+        
+        .medal-outer-ring {
+            position: absolute;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            border: 2px solid #555;
+            border-radius: 50%;
+            box-shadow: 0 0 0 3px #333;
+        }
+        
+        .medal-inner-ring {
+            position: absolute;
+            top: 4px; left: 4px; right: 4px; bottom: 4px;
+            border: 2px solid #666;
+            border-radius: 50%;
+            overflow: hidden;
+            background: #444;
+        }
+        
+        .profile-frame {
+            width: 100%; height: 100%;
+            border-radius: 50%;
+            overflow: hidden;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: linear-gradient(180deg, #555 0%, #333 100%);
+        }
+        
+        .profile-frame img { width: 100%; height: 100%; object-fit: cover; }
+        .profile-frame .initial { font-family: 'Oswald', sans-serif; font-size: 1.5rem; color: #888; font-weight: 600; }
+        .profile-frame input { display: none; }
+        
+        .name-input {
+            background: transparent;
+            border: none;
+            color: #ff0844;
+            font-family: 'Oswald', sans-serif;
+            font-size: 1.5rem;
+            font-weight: 700;
+            letter-spacing: 0.15rem;
+            text-transform: uppercase;
+            width: 100%;
+            min-width: 0;
+        }
+        
+        .name-input:focus { outline: none; text-decoration: underline; }
+        
+        .arrow { font-size: 1.5rem; text-align: center; }
+        .arrow.up { color: #00ff00; }
+        .arrow.down { color: #ff0000; }
+        .arrow.neutral { color: #666; }
+        
+        .points-box {
+            background: #fff;
+            color: #000;
+            font-family: 'Oswald', sans-serif;
+            font-size: 1.75rem;
+            font-weight: 700;
+            padding: 0.5rem 0.75rem;
+            border-radius: 0.3rem;
+            text-align: center;
+        }
+        
+        .points-input {
+            background: transparent;
+            border: none;
+            color: inherit;
+            font-family: inherit;
+            font-size: inherit;
+            font-weight: inherit;
+            width: 100%;
+            text-align: center;
+        }
+        
+        .points-input:focus { outline: 2px solid #ff0844; border-radius: 3px; }
+        
+        .stars-container { display: flex; flex-direction: column; gap: 0.15rem; }
+        .stars-row { display: flex; gap: 0.2rem; }
+        
+        .star {
+            font-size: 1.6rem;
+            cursor: pointer;
+            transition: transform 0.2s;
+            user-select: none;
+        }
+        
+        .star:hover { transform: scale(1.3); }
+        .star.green { color: #00ff00; text-shadow: 0 0 10px rgba(0, 255, 0, 0.5); }
+        .star.red { color: #ff0000; text-shadow: 0 0 10px rgba(255, 0, 0, 0.5); }
+        
+        .item-controls {
+            display: flex;
+            gap: 0.3rem;
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+        
+        .leaderboard-item:hover .item-controls { opacity: 1; }
+        
+        .mini-btn {
+            background: #333;
+            border: none;
+            color: #fff;
+            padding: 0.3rem 0.5rem;
+            border-radius: 0.2rem;
+            cursor: pointer;
+            font-size: 0.85rem;
+            transition: all 0.2s;
+        }
+        
+        .mini-btn:hover { background: #555; transform: scale(1.1); }
+        .mini-btn.delete { background: #8b0000; }
+        .mini-btn.delete:hover { background: #cc0000; }
+        
+        .tv-mode-indicator {
+            position: fixed;
+            bottom: 1rem; right: 1rem;
+            background: rgba(0,0,0,0.7);
+            padding: 0.5rem 1rem;
+            border-radius: 0.3rem;
+            font-size: 0.75rem;
+            color: #666;
+            z-index: 100;
+        }
+        
+        @media (max-width: 1100px) {
+            .container { grid-template-columns: 1fr; }
+            .left-panel { max-width: 400px; margin: 0 auto; }
+            .leaderboard-item { grid-template-columns: 2.5rem 4rem 1fr 2rem 4rem 6rem auto; gap: 0.5rem; padding: 0.5rem; }
+        }
+        
+        @media (max-width: 700px) {
+            .leaderboard-item { grid-template-columns: 2rem 3rem 1fr 3.5rem 5rem; gap: 0.4rem; }
+            .arrow, .item-controls { display: none; }
+        }
+        
+        @media (min-width: 1920px) {
+            .container { max-width: 90vw; }
+            .leaderboard-item { padding: 1rem 1.5rem; gap: 1.5rem; }
+        }
+        
+        @media (min-width: 2560px) { .leaderboard-list { gap: 1rem; } }
+    </style>
+</head>
+<body>
+    <canvas id="particles"></canvas>
+    
+    <div class="container">
+        <div class="left-panel">
+            <div class="avatar-section">
+                <div class="avatar-container">
+                    <button class="remove-avatar-btn" onclick="removeMainAvatar(event)" title="Remove image">✕</button>
+                    <div class="avatar-silhouette" onclick="document.getElementById('mainAvatar').click()">
+                        <svg id="silhouetteSvg" viewBox="0 0 100 140">
+                            <ellipse cx="50" cy="25" rx="20" ry="22"/>
+                            <path d="M20 50 Q20 45 30 42 L50 40 L70 42 Q80 45 80 50 L85 140 L15 140 Z"/>
+                        </svg>
+                        <img id="mainAvatarImg" src="" alt="" style="display: none;">
+                        <input type="file" id="mainAvatar" accept="image/*" onchange="uploadMainAvatar(this)">
+                    </div>
+                    <div class="scico-badge"><span>SCICO</span></div>
+                </div>
+            </div>
+            
+            <div class="formulas-section">
+                <div class="formula-box">
+                    <input type="text" class="formula-title" id="formulaTitle1" value="Skill Learning Velocity formula =" onchange="saveFormulas()">
+                    <textarea class="formula-content" id="formulaContent1" onchange="saveFormulas()">(Exposure × Frequency × Repetition × Truth Feedback)
+/ (Ego × Fear × Complexity × Friction)</textarea>
+                </div>
+                <div class="formula-box">
+                    <input type="text" class="formula-title" id="formulaTitle2" value="Identity Proliferation =" onchange="saveFormulas()">
+                    <textarea class="formula-content" id="formulaContent2" onchange="saveFormulas()">(Micro-Identity Cues × Narrative Alignment ×
+Emotional Spike × Repeat Exposure) / Cognitive Load</textarea>
+                </div>
+            </div>
+        </div>
+        
+        <div class="leaderboard">
+            <div class="leaderboard-header">
+                <div style="display: flex; align-items: center;">
+                    <h1>LEADERBOARD</h1>
+                    <span class="sync-status disconnected" id="syncStatus">●  Connecting...</span>
+                </div>
+                <div class="controls-bar">
+                    <button class="btn secondary" onclick="resetAll()">RESET</button>
+                    <button class="btn" onclick="addMember()">+ ADD SLOT</button>
+                </div>
+            </div>
+            <div class="leaderboard-list" id="leaderboardList"></div>
+        </div>
+    </div>
+    
+    <div class="tv-mode-indicator" id="screenInfo"></div>
+
+    <script>
+        // ========== FIREBASE CONFIG ==========
+        const firebaseConfig = {
+            apiKey: "AIzaSyDbTD3XRvCemHAMGHwebxt-V7z6F5G8fwA",
+            authDomain: "scico-leaderboard.firebaseapp.com",
+            databaseURL: "https://scico-leaderboard-default-rtdb.asia-southeast1.firebasedatabase.app",
+            projectId: "scico-leaderboard",
+            storageBucket: "scico-leaderboard.firebasestorage.app",
+            messagingSenderId: "277980159078",
+            appId: "1:277980159078:web:e621b3a1c1c0b85b5a61a7"
+        };
+        
+        // Initialize Firebase
+        firebase.initializeApp(firebaseConfig);
+        const database = firebase.database();
+        
+        // Database references
+        const membersRef = database.ref('members');
+        const formulasRef = database.ref('formulas');
+        const avatarRef = database.ref('mainAvatar');
+        
+        // Connection status
+        database.ref('.info/connected').on('value', (snap) => {
+            const status = document.getElementById('syncStatus');
+            if (snap.val() === true) {
+                status.textContent = '● Live';
+                status.className = 'sync-status connected';
+            } else {
+                status.textContent = '● Offline';
+                status.className = 'sync-status disconnected';
+            }
+        });
+        
+        // ========== PARTICLE EFFECT ==========
+        const canvas = document.getElementById('particles');
+        const ctx = canvas.getContext('2d');
+        let particles = [];
+        
+        function resizeCanvas() { canvas.width = window.innerWidth; canvas.height = window.innerHeight; }
+        window.addEventListener('resize', resizeCanvas);
+        resizeCanvas();
+        
+        class Particle {
+            constructor() { this.reset(); }
+            reset() {
+                this.x = Math.random() * canvas.width;
+                this.y = Math.random() * canvas.height;
+                this.size = Math.random() * 2 + 0.5;
+                this.speedX = (Math.random() - 0.5) * 0.3;
+                this.speedY = (Math.random() - 0.5) * 0.3;
+                this.opacity = Math.random() * 0.3 + 0.1;
+                this.fadeDirection = Math.random() > 0.5 ? 1 : -1;
+            }
+            update() {
+                this.x += this.speedX; this.y += this.speedY;
+                this.opacity += this.fadeDirection * 0.002;
+                if (this.opacity >= 0.4) this.fadeDirection = -1;
+                if (this.opacity <= 0.05) this.fadeDirection = 1;
+                if (this.x < 0) this.x = canvas.width;
+                if (this.x > canvas.width) this.x = 0;
+                if (this.y < 0) this.y = canvas.height;
+                if (this.y > canvas.height) this.y = 0;
+            }
+            draw() {
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+                ctx.fillStyle = `rgba(139, 0, 50, ${this.opacity})`;
+                ctx.fill();
+            }
+        }
+        
+        function initParticles() {
+            const count = Math.min(80, Math.floor((canvas.width * canvas.height) / 25000));
+            particles = [];
+            for (let i = 0; i < count; i++) particles.push(new Particle());
+        }
+        
+        function animateParticles() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            particles.forEach(p => { p.update(); p.draw(); });
+            requestAnimationFrame(animateParticles);
+        }
+        
+        initParticles(); animateParticles();
+        window.addEventListener('resize', initParticles);
+        
+        // ========== LEADERBOARD DATA ==========
+        let members = [];
+        
+        const crownSvg = `<svg viewBox="0 0 30 20" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M3 16 L6 6 L12 11 L15 2 L18 11 L24 6 L27 16 Z" fill="#8b0000" stroke="#cc0000" stroke-width="0.5"/><circle cx="6" cy="5" r="2" fill="#cc0000"/><circle cx="15" cy="1" r="2" fill="#cc0000"/><circle cx="24" cy="5" r="2" fill="#cc0000"/></svg>`;
+        
+        const defaultMembers = [
+            { name: "YASH", points: 36, greenStars: 3, redStars: 3, profileImg: null, trend: 'up' },
+            { name: "VIVEK", points: 36, greenStars: 3, redStars: 3, profileImg: null, trend: 'up' },
+            { name: "CHIRAG", points: 36, greenStars: 3, redStars: 3, profileImg: null, trend: 'up' },
+            { name: "AMOL", points: 36, greenStars: 3, redStars: 3, profileImg: null, trend: 'up' },
+            { name: "MOHIT", points: 36, greenStars: 3, redStars: 3, profileImg: null, trend: 'down' },
+            { name: "SAMARTH", points: 36, greenStars: 3, redStars: 3, profileImg: null, trend: 'down' },
+            { name: "TANMAY", points: 36, greenStars: 3, redStars: 3, profileImg: null, trend: 'down' },
+            { name: "RED TEAM", points: 36, greenStars: 3, redStars: 3, profileImg: null, trend: 'down' }
+        ];
+        
+        // Listen for real-time updates from Firebase
+        membersRef.on('value', (snapshot) => {
+            const data = snapshot.val();
+            if (data && Object.keys(data).length > 0) {
+                members = Object.values(data);
+                render();
+            } else {
+                // Database empty - initialize with defaults
+                members = [...defaultMembers];
+                membersRef.set(members).then(() => {
+                    render();
+                });
+            }
+        });
+        
+        // Load formulas from Firebase
+        formulasRef.on('value', (snapshot) => {
+            const data = snapshot.val();
+            if (data) {
+                document.getElementById('formulaTitle1').value = data.title1 || '';
+                document.getElementById('formulaContent1').value = data.content1 || '';
+                document.getElementById('formulaTitle2').value = data.title2 || '';
+                document.getElementById('formulaContent2').value = data.content2 || '';
+            }
+        });
+        
+        // Load main avatar from Firebase
+        avatarRef.on('value', (snapshot) => {
+            const data = snapshot.val();
+            if (data && data.length > 10) {
+                document.getElementById('mainAvatarImg').src = data;
+                document.getElementById('mainAvatarImg').style.display = 'block';
+                document.getElementById('silhouetteSvg').style.display = 'none';
+            }
+        });
+        
+        function saveMembers() {
+            membersRef.set(members);
+        }
+        
+        function saveFormulas() {
+            formulasRef.set({
+                title1: document.getElementById('formulaTitle1').value,
+                content1: document.getElementById('formulaContent1').value,
+                title2: document.getElementById('formulaTitle2').value,
+                content2: document.getElementById('formulaContent2').value
+            });
+        }
+        
+        function sortMembers() { members.sort((a, b) => b.points - a.points); }
+        
+        function render() {
+            sortMembers();
+            const list = document.getElementById('leaderboardList');
+            list.innerHTML = '';
+            members.forEach((member, index) => {
+                const item = document.createElement('div');
+                item.className = 'leaderboard-item';
+                item.innerHTML = `
+                    <div class="rank">${index + 1}</div>
+                    <div class="profile-container" onclick="document.getElementById('profile${index}').click()">
+                        <div class="medal-wrapper">
+                            ${index === 0 ? `<div class="crown">${crownSvg}</div>` : ''}
+                            <div class="medal-outer-ring"></div>
+                            <div class="medal-inner-ring">
+                                <div class="profile-frame">
+                                    ${member.profileImg ? `<img src="${member.profileImg}" alt="${member.name}">` : `<span class="initial">${member.name[0]}</span>`}
+                                    <input type="file" id="profile${index}" accept="image/*" onchange="uploadProfile(${index}, this)">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <input type="text" class="name-input" value="${member.name}" onchange="updateName(${index}, this.value)">
+                    <div class="arrow ${member.trend}">${member.trend === 'up' ? '▲' : member.trend === 'down' ? '▼' : '●'}</div>
+                    <div class="points-box"><input type="number" class="points-input" value="${member.points}" onchange="updatePoints(${index}, this.value)" min="0" step="0.1"></div>
+                    <div class="stars-container">
+                        <div class="stars-row green-row">${renderStars(index, member.greenStars, 'green')}</div>
+                        <div class="stars-row red-row">${renderStars(index, member.redStars, 'red')}</div>
+                    </div>
+                    <div class="item-controls">
+                        <button class="mini-btn" onclick="addStar(${index}, 'green')">+🟢</button>
+                        <button class="mini-btn" onclick="addStar(${index}, 'red')">+🔴</button>
+                        <button class="mini-btn" onclick="removeStar(${index}, 'green')">-🟢</button>
+                        <button class="mini-btn" onclick="removeStar(${index}, 'red')">-🔴</button>
+                        <button class="mini-btn" onclick="toggleTrend(${index})">↕️</button>
+                        <button class="mini-btn delete" onclick="deleteMember(${index})">✕</button>
+                    </div>`;
+                list.appendChild(item);
+            });
+        }
+        
+        function renderStars(idx, count, color) {
+            let html = '';
+            for (let i = 0; i < count; i++) html += `<span class="star ${color}" onclick="removeStar(${idx}, '${color}')">★</span>`;
+            return html;
+        }
+        
+        function updateName(index, value) { members[index].name = value.toUpperCase(); saveMembers(); }
+        function updatePoints(index, value) { members[index].points = parseFloat(value) || 0; saveMembers(); }
+        
+        function addStar(index, color) {
+            event.stopPropagation();
+            if (color === 'green') members[index].greenStars++;
+            else members[index].redStars++;
+            saveMembers();
+        }
+        
+        function removeStar(index, color) {
+            event.stopPropagation();
+            if (color === 'green' && members[index].greenStars > 0) members[index].greenStars--;
+            else if (color === 'red' && members[index].redStars > 0) members[index].redStars--;
+            saveMembers();
+        }
+        
+        function toggleTrend(index) {
+            event.stopPropagation();
+            const trends = ['up', 'down', 'neutral'];
+            members[index].trend = trends[(trends.indexOf(members[index].trend) + 1) % 3];
+            saveMembers();
+        }
+        
+        function addMember() {
+            members.push({ name: 'NEW MEMBER', points: 0, greenStars: 0, redStars: 0, profileImg: null, trend: 'neutral' });
+            saveMembers();
+        }
+        
+        function deleteMember(index) {
+            event.stopPropagation();
+            if (confirm(`Delete ${members[index].name}?`)) {
+                members.splice(index, 1);
+                saveMembers();
+            }
+        }
+        
+        function uploadProfile(index, input) {
+            if (input.files && input.files[0]) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    members[index].profileImg = e.target.result;
+                    saveMembers();
+                };
+                reader.readAsDataURL(input.files[0]);
+            }
+        }
+        
+        function uploadMainAvatar(input) {
+            if (input.files && input.files[0]) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    document.getElementById('mainAvatarImg').src = e.target.result;
+                    document.getElementById('mainAvatarImg').style.display = 'block';
+                    document.getElementById('silhouetteSvg').style.display = 'none';
+                    avatarRef.set(e.target.result);
+                };
+                reader.readAsDataURL(input.files[0]);
+            }
+        }
+        
+        function removeMainAvatar(event) {
+            event.stopPropagation();
+            document.getElementById('mainAvatarImg').src = '';
+            document.getElementById('mainAvatarImg').style.display = 'none';
+            document.getElementById('silhouetteSvg').style.display = 'block';
+            document.getElementById('mainAvatar').value = '';
+            avatarRef.set('');
+        }
+        
+        function resetAll() {
+            if (confirm('Reset all data to defaults?')) {
+                members = [...defaultMembers];
+                saveMembers();
+                formulasRef.set({
+                    title1: 'Skill Learning Velocity formula =',
+                    content1: '(Exposure × Frequency × Repetition × Truth Feedback)\n/ (Ego × Fear × Complexity × Friction)',
+                    title2: 'Identity Proliferation =',
+                    content2: '(Micro-Identity Cues × Narrative Alignment ×\nEmotional Spike × Repeat Exposure) / Cognitive Load'
+                });
+                avatarRef.set('');
+            }
+        }
+        
+        function updateScreenInfo() {
+            const w = window.innerWidth, h = window.innerHeight;
+            let mode = 'Desktop';
+            if (w >= 3840) mode = '4K TV';
+            else if (w >= 2560) mode = '2K/QHD';
+            else if (w >= 1920) mode = 'Full HD';
+            else if (w >= 1280) mode = 'HD';
+            else if (w <= 768) mode = 'Mobile';
+            document.getElementById('screenInfo').textContent = `${w}×${h} | ${mode}`;
+        }
+        
+        window.addEventListener('resize', updateScreenInfo);
+        updateScreenInfo();
+    </script>
+</body>
+</html>
